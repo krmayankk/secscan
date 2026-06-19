@@ -1,0 +1,27 @@
+# virtualenv
+.venv/
+venv/
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# test / tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# secscan runtime artifacts
+*.secscan.bak.*
