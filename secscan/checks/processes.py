@@ -41,15 +41,20 @@ class DeletedBinaryCheck(Check):
             if not deleted and "memfd:" not in exe:
                 continue
             cmd = " ".join(proc.info["cmdline"] or [proc.info["name"] or "?"])
-            if (exe.startswith(_SUSPICIOUS_EXE_DIR) or exe.startswith(str(ctx.home))
-                    or "memfd:" in exe or "/." in exe):
+            # Malware that unlinks its own binary runs it from a volatile runtime
+            # location (tmp, shm, /run, or an anonymous memfd). A "(deleted)" exe
+            # under a normal install prefix OR under $HOME is almost always a
+            # self-updating app that swapped its binary (apt upgrade, VS Code,
+            # nvm-managed tools, Claude Code, Electron auto-update) — not malware.
+            if exe.startswith(_SUSPICIOUS_EXE_DIR) or "memfd:" in exe:
                 suspicious += 1
                 yield self.high(
-                    f"PID {proc.pid} runs a deleted binary from a suspicious path",
+                    f"PID {proc.pid} runs a deleted binary from a volatile runtime path",
                     detail=f"{exe}  cmd={cmd}",
                     remediation="Investigate this process; malware often unlinks its own binary.",
                 )
-            elif exe.startswith(("/usr", "/bin", "/sbin", "/lib", "/opt", "/snap")):
+            elif exe.startswith(("/usr", "/bin", "/sbin", "/lib", "/opt", "/snap")) \
+                    or exe.startswith(str(ctx.home)):
                 upgraded += 1
             else:
                 yield self.warn(f"PID {proc.pid} runs a deleted binary", detail=f"{exe}  cmd={cmd}")
