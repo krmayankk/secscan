@@ -244,6 +244,12 @@ risk but cannot prove a machine is uncompromised, and findings are heuristics
 that benefit from human review. If you suspect an active compromise, isolate the
 machine and consult a professional.
 
+It covers the common 80% (browser spam, persistence, loud malware, config
+tampering, known-signature malware) well, and is designed to extend toward
+broader real-threat coverage without constant manual updates. See
+[ROADMAP.md](ROADMAP.md) for the known gaps (infostealer/credential theft,
+malicious extensions, supply-chain, YARA) and the design principle behind them.
+
 ---
 
 ## Contributing
