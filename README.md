@@ -118,10 +118,32 @@ secscan --json > scan-$(date +%F).json          # archive for diffing
 
 ### Run it on a schedule
 
-```cron
-# daily 9am scan; mail yourself only when something HIGH is found
-0 9 * * *  cd ~/secscan && .venv/bin/secscan --quick || .venv/bin/secscan --quick | mail -s "secscan: findings" you@example.com
+A ready-made cron wrapper is included: [`scripts/secscan-weekly.sh`](scripts/secscan-weekly.sh).
+It runs one scan, archives a JSON report + text summary under
+`~/.local/state/secscan/` (keeping the last 12), updates `latest.json`/`latest.txt`
+pointers, and fires a desktop notification if anything HIGH is found.
+
+Install a weekly run (Mondays 09:00):
+
+```bash
+(crontab -l 2>/dev/null; echo "0 9 * * 1 $HOME/src/secscan/scripts/secscan-weekly.sh") | crontab -
 ```
+
+**Seeing the results.** Desktop notifications from cron are best-effort (they
+need a live GUI session). For a reliable nudge, add this to your `~/.bashrc` so
+new shells warn you only when the last scan found HIGH items (silent when clean):
+
+```bash
+if [ -f "$HOME/.local/state/secscan/latest.json" ]; then
+  _ss_high=$(grep -c '"severity": 3' "$HOME/.local/state/secscan/latest.json" 2>/dev/null)
+  [ "${_ss_high:-0}" -gt 0 ] && \
+    printf '\033[1;31m⚠️  secscan: %s HIGH finding(s) — cat %s\033[0m\n' \
+      "$_ss_high" "$HOME/.local/state/secscan/latest.txt"
+  unset _ss_high
+fi
+```
+
+Read the latest report any time with `cat ~/.local/state/secscan/latest.txt`.
 
 ---
 
