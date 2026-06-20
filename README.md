@@ -123,7 +123,21 @@ It runs one scan, archives a JSON report + text summary under
 `~/.local/state/secscan/` (keeping the last 12), updates `latest.json`/`latest.txt`
 pointers, and fires a desktop notification if anything HIGH is found.
 
-Install a weekly run (Mondays 09:00):
+**Recommended: a systemd user timer** (in [`systemd/`](systemd/)). Unlike cron, it
+**catches up a missed run** if the machine was off or asleep at the scheduled
+time (`Persistent=true`), running on the next login/resume:
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp systemd/secscan.service systemd/secscan.timer ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now secscan.timer
+systemctl --user list-timers secscan.timer   # confirm next run
+```
+
+(To run even when you're not logged in, also: `loginctl enable-linger $USER`.)
+
+Or, plainer, a cron line (no catch-up if the machine was off):
 
 ```bash
 (crontab -l 2>/dev/null; echo "0 9 * * 1 $HOME/src/secscan/scripts/secscan-weekly.sh") | crontab -

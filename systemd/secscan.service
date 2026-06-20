@@ -1,0 +1,10 @@
+[Unit]
+Description=secscan weekly host security scan
+Documentation=https://github.com/krmayankk/secscan
+
+[Service]
+Type=oneshot
+ExecStart=%h/src/secscan/scripts/secscan-weekly.sh
+# Don't let a scan peg the machine
+Nice=10
+IOSchedulingClass=idle

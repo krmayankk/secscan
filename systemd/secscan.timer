@@ -1,0 +1,14 @@
+[Unit]
+Description=Run secscan weekly (catches up if the machine was off/asleep)
+Documentation=https://github.com/krmayankk/secscan
+
+[Timer]
+# Weekly, Mondays at 09:00 local time
+OnCalendar=Mon *-*-* 09:00:00
+# If the scheduled time was missed (machine off/asleep), run on next start
+Persistent=true
+# Spread the start by up to 5 min so it isn't exactly on the second
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
