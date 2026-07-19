@@ -5,8 +5,10 @@
 
 A host security & spam scanner for Ubuntu/Linux desktops. It looks for the
 everyday ways a personal machine gets compromised — browser push-notification
-spam, keyloggers, reverse shells, crypto-miners, rogue startup entries,
-tampered config, and known malware — and reports what it finds in one place.
+spam, infostealers reading your passwords/keys/wallets, malicious or hijacked
+browser extensions, keyloggers, reverse shells, crypto-miners, rogue startup
+entries, tampered config, and known malware — and reports what it finds in one
+place.
 
 **Read-only by design.** secscan inspects and reports; it never deletes or
 modifies anything on your system. (The one optional write — clearing a spam
@@ -92,6 +94,29 @@ secscan --list          # show every check
 Exit code is **`1`** when any HIGH finding is present (else `0`) — handy for
 cron, CI, or alerting.
 
+### Verify a scan in 30 seconds
+
+```bash
+. .venv/bin/activate            # or call .venv/bin/secscan directly
+python -m pytest -q             # unit tests should all pass
+secscan --quick; echo "exit=$?" # exit=1 means at least one HIGH finding
+```
+
+Read the report bottom-up: the **Summary** table counts findings by severity;
+anything HIGH is listed in its category section with a `->` remediation line
+telling you what to do. To see only what needs action:
+
+```bash
+secscan --quick --json | python -c 'import json,sys
+for f in json.load(sys.stdin)["findings"]:
+    if f["severity"] >= 2: print(f["severity"], f["check"], f["title"])'
+```
+
+(severity 3 = HIGH, 2 = WARN.) If you already installed the weekly timer/cron
+job (below), it picks the new checks up automatically on its next run — verify
+with `systemctl --user list-timers secscan.timer` and
+`cat ~/.local/state/secscan/latest.txt`.
+
 ---
 
 ## Usage
@@ -165,7 +190,8 @@ Read the latest report any time with `cat ~/.local/state/secscan/latest.txt`.
 
 | Category    | Checks |
 |-------------|--------|
-| browser     | web push-notification spam grants (Chrome/Chromium/Firefox); extension inventory |
+| browser     | web push-notification spam grants (Chrome/Chromium/Firefox); extensions graded by permission risk (side-loaded + dangerous permissions = HIGH); hijack-grade launch flags on running browsers; tampered `.desktop` launchers; forced managed policies; homepage/search hijack to spam domains |
+| stealer     | infostealer canary: any unexpected process caught reading browser cookie/password DBs, `~/.ssh` / GPG keys, AWS/GCloud/Kubernetes/Docker credentials, crypto wallets, or `.env` files — escalated when it also holds an outbound connection |
 | persistence | user crontab; per-user systemd units; XDG autostart; shell-rc payload patterns; `ld.so.preload`/`LD_PRELOAD` hijacks |
 | keylogger   | processes holding raw `/dev/input` keyboard handles; known keylogger libraries |
 | process     | binaries running from a deleted/anonymous path; crypto-miner signatures; temp/hidden-dir execution |

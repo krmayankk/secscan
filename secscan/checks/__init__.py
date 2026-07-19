@@ -2,6 +2,7 @@
 from . import (  # noqa: F401
     antivirus,
     browser,
+    browserhijack,
     filesystem,
     keylogger,
     malware,
@@ -9,4 +10,5 @@ from . import (  # noqa: F401
     persistence,
     processes,
     ssh,
+    stealer,
 )

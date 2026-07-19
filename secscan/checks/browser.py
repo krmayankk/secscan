@@ -102,22 +102,93 @@ class NotificationSpamCheck(Check):
                 yield self.ok(f"firefox notifications allowed: {host}")
 
 
+# --- extension permission risk -------------------------------------------
+# Extensions are a top consumer attack vector: a malicious or bought-out
+# extension with broad permissions can read every page (including banking
+# sessions), steal cookies, or reroute traffic. We grade each installed
+# extension by what its manifest *can* do, not by reputation.
+
+_ALL_URLS = ("<all_urls>", "*://*/*", "http://*/*", "https://*/*")
+_BROAD_WITH_ALL_URLS = ("cookies", "webRequest", "scripting", "history",
+                        "clipboardRead")
+
+
+def extension_risk(manifest: dict) -> tuple[str, list[str]]:
+    """Grade a manifest: ('high'|'warn'|'ok', human-readable reasons)."""
+    perms = {str(p) for p in (manifest.get("permissions") or [])
+             if isinstance(p, (str, int))}
+    perms |= {str(p) for p in (manifest.get("optional_permissions") or [])
+              if isinstance(p, (str, int))}
+    hosts = {str(p) for p in (manifest.get("host_permissions") or [])}  # MV3
+    all_urls = bool((perms | hosts) & set(_ALL_URLS))
+
+    level, reasons = "ok", []
+    if "proxy" in perms:
+        level = "high"
+        reasons.append("can silently reroute all your traffic ('proxy')")
+    if "debugger" in perms:
+        level = "high"
+        reasons.append("can attach to any tab and read sessions/cookies ('debugger')")
+    if all_urls:
+        broad = sorted(p for p in perms if p in _BROAD_WITH_ALL_URLS)
+        if broad:
+            if level != "high":
+                level = "warn"
+            reasons.append("can read/modify every site you visit "
+                           f"(<all_urls> + {', '.join(broad)})")
+        else:
+            if level == "ok":
+                level = "warn"
+            reasons.append("has access to every website (<all_urls>)")
+    if "nativeMessaging" in perms:
+        if level == "ok":
+            level = "warn"
+        reasons.append("can talk to native programs on your machine "
+                       "('nativeMessaging')")
+    return level, reasons
+
+
 @register
 class ExtensionInventoryCheck(Check):
     name = "browser.extensions"
     category = "browser"
-    description = "Inventory of installed Chromium extensions"
+    description = "Installed Chromium extensions, graded by permission risk"
 
     def run(self, ctx: Context) -> Iterable[Finding]:
         seen = False
         for root in (ctx.home / ".config/google-chrome",
-                     ctx.home / ".config/chromium"):
+                     ctx.home / ".config/chromium",
+                     ctx.home / ".config/BraveSoftware/Brave-Browser"):
             for extdir in root.glob("*/Extensions/*"):
                 if not extdir.is_dir():
                     continue
                 seen = True
-                name = self._ext_name(extdir) or extdir.name
-                yield self.info(f"extension: {name}", detail=extdir.name)
+                name, manifest = self._ext_manifest(extdir)
+                name = name or extdir.name
+                level, reasons = extension_risk(manifest or {})
+                # Web Store CRXs unpack with a signed _metadata dir; its absence
+                # means the extension was side-loaded — the riskier install path.
+                sideloaded = not any(v.is_dir() for v in extdir.glob("*/_metadata"))
+                if sideloaded and level != "ok":
+                    reasons.append("side-loaded (not installed from the Web Store)")
+                if level == "high" and not sideloaded:
+                    level = "warn"  # store-signed: dangerous but user-chosen
+                if level == "high":
+                    yield self.high(
+                        f"extension '{name}' has dangerous permissions",
+                        detail=f"{extdir.name}: " + "; ".join(reasons),
+                        remediation="Fine only if you installed and fully trust it. "
+                                    "Otherwise remove it in chrome://extensions.",
+                    )
+                elif level == "warn":
+                    yield self.warn(
+                        f"extension '{name}' has broad permissions",
+                        detail=f"{extdir.name}: " + "; ".join(reasons),
+                        remediation="Normal for ad-blockers/password managers you "
+                                    "chose; a red flag on anything unfamiliar.",
+                    )
+                else:
+                    yield self.info(f"extension: {name}", detail=extdir.name)
         if not seen:
             yield self.ok("No unpacked Chromium extensions installed.")
         else:
@@ -127,10 +198,12 @@ class ExtensionInventoryCheck(Check):
             )
 
     @staticmethod
-    def _ext_name(extdir: Path) -> str | None:
-        for manifest in extdir.glob("*/manifest.json"):
+    def _ext_manifest(extdir: Path) -> tuple[str | None, dict | None]:
+        # newest version dir last — that's the live one
+        for manifest in sorted(extdir.glob("*/manifest.json"), reverse=True):
             try:
-                return json.loads(manifest.read_text(errors="replace")).get("name")
+                data = json.loads(manifest.read_text(errors="replace"))
+                return data.get("name"), data
             except (json.JSONDecodeError, OSError):
                 continue
-        return None
+        return None, None

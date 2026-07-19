@@ -30,24 +30,25 @@ Today secscan is a strong triage tool for the common 80% (browser spam,
 persistence, loud malware, config tampering, known-signature malware). These are
 the real-world gaps to close, roughly in impact order:
 
-### P1 — Infostealer / credential-theft canary  *(highest real-world impact)*
-The #1 actual threat today: malware that copies and exfiltrates secrets, often
-leaving no persistent artifact. Detect processes (outside an allowlist) reading:
-browser cookie/login DBs, `~/.ssh/`, `~/.aws/credentials`, `~/.config/gcloud`,
-`~/.kube/config`, `.env` files, crypto wallets. Behavioral, fits the existing
-psutil `open_files()` model. Pairs well with flagging outbound connections from
-the same PID.
+### ~~P1 — Infostealer / credential-theft canary~~  ✅ shipped in v0.2.0
+`stealer.secrets` flags processes (outside per-secret allowlists) holding open
+browser cookie/login DBs, `~/.ssh`/`~/.gnupg` keys, AWS/GCloud/K8s/Docker
+credentials, crypto wallets, netrc/git-credentials, and `.env` files, and
+escalates when the same PID has an established outbound connection. Remaining
+idea: a periodic (daemon) mode to shrink the point-in-time snapshot window.
 
-### P2 — Malicious browser extension analysis
-We inventory extensions but don't judge them. Flag extensions that request
-high-risk permissions (`<all_urls>`, `webRequest`, `cookies`, `proxy`,
-`nativeMessaging`), are side-loaded / not from the Web Store, or were installed
-outside the normal UI. Extensions are a top consumer attack vector.
+### ~~P2 — Malicious browser extension analysis~~  ✅ shipped in v0.2.0
+`browser.extensions` now grades each manifest: `proxy`/`debugger` or
+`<all_urls>` + cookies/webRequest/scripting/history are flagged; side-loaded
+(no Web Store `_metadata`) + dangerous permissions = HIGH. Remaining idea:
+detect install-time provenance from `Preferences` (`extensions.settings`).
 
-### P3 — Browser integrity
-Detect hijack indicators: unexpected `--load-extension`/`--proxy-server` launch
-flags, tampered `Secure Preferences` (HMAC mismatch), changed default search
-engine / homepage / proxy, rogue managed-policy files.
+### ~~P3 — Browser integrity~~  ✅ shipped in v0.2.0
+`browser.flags` (hijack-grade launch flags on running browsers),
+`browser.launcher` (tampered `.desktop` files / fixed-URL homepage hijack),
+`browser.policy` (forced managed policies: extension forcelist, proxy, search),
+`browser.startpage` (homepage/startup/search pointing at throwaway domains).
+Remaining idea: `Secure Preferences` HMAC verification.
 
 ### P4 — Supply-chain / package risk
 Surface recently installed or postinstall-scripted `npm`/`pip` packages, new AUR
