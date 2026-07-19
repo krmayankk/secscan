@@ -53,6 +53,35 @@ ln -sf "$(basename "$json")" "$STATE_DIR/latest.json"
 ln -sf "$(basename "$summary")" "$STATE_DIR/latest.txt"
 
 high=$(grep -c '"severity": 3' "$json" 2>/dev/null || echo 0)
+warn=$(grep -c '"severity": 2' "$json" 2>/dev/null || echo 0)
+
+# Email the summary (optional). Recipient comes from $SECSCAN_EMAIL or the
+# first line of ~/.config/secscan/email. Delivery uses any sendmail-compatible
+# transport (msmtp-mta recommended — see README "Email the weekly report").
+EMAIL_TO="${SECSCAN_EMAIL:-}"
+if [[ -z "$EMAIL_TO" && -f "$HOME/.config/secscan/email" ]]; then
+  EMAIL_TO="$(head -n1 "$HOME/.config/secscan/email")"
+fi
+if [[ -n "$EMAIL_TO" ]]; then
+  sendmail_bin=""
+  for c in msmtp /usr/sbin/sendmail /usr/lib/sendmail sendmail; do
+    if command -v "$c" >/dev/null 2>&1; then sendmail_bin="$c"; break; fi
+  done
+  if [[ -n "$sendmail_bin" ]]; then
+    if [[ "$high" -gt 0 ]]; then verdict="⚠ $high HIGH"
+    elif [[ "$warn" -gt 0 ]]; then verdict="$warn WARN"
+    else verdict="clean"; fi
+    { printf 'To: %s\n' "$EMAIL_TO"
+      printf 'Subject: secscan weekly [%s] on %s\n' "$verdict" "$(hostname)"
+      printf 'Content-Type: text/plain; charset=utf-8\n\n'
+      cat "$summary"
+    } | "$sendmail_bin" -t 2>>"$STATE_DIR/scan-$ts.err" \
+      || echo "email to $EMAIL_TO failed via $sendmail_bin" >>"$STATE_DIR/scan-$ts.err"
+  else
+    echo "email recipient set ($EMAIL_TO) but no mail transport found —" \
+         "install one: sudo apt install msmtp-mta" >>"$STATE_DIR/scan-$ts.err"
+  fi
+fi
 
 # Desktop notification on HIGH (best-effort; works when a GUI session is up).
 if [[ "$code" -eq 1 && "$high" -gt 0 ]]; then

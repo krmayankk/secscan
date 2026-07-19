@@ -190,6 +190,42 @@ Or, plainer, a cron line (no catch-up if the machine was off):
 (crontab -l 2>/dev/null; echo "0 9 * * 1 $HOME/src/secscan/scripts/secscan-weekly.sh") | crontab -
 ```
 
+#### Email the weekly report
+
+The wrapper emails each run's summary (subject says `clean`, `N WARN`, or
+`⚠ N HIGH`) when a recipient is configured:
+
+```bash
+mkdir -p ~/.config/secscan
+echo you@example.com > ~/.config/secscan/email   # or export SECSCAN_EMAIL
+```
+
+Delivery needs any sendmail-compatible transport. On a desktop the simplest is
+**msmtp** with a Gmail app password (create one at
+https://myaccount.google.com/apppasswords — requires 2-step verification):
+
+```bash
+sudo apt install msmtp-mta
+cat > ~/.msmtprc <<'EOF'
+defaults
+auth on
+tls on
+tls_trust_file /etc/ssl/certs/ca-certificates.crt
+account gmail
+host smtp.gmail.com
+port 587
+from you@gmail.com
+user you@gmail.com
+password YOUR-16-CHAR-APP-PASSWORD
+account default : gmail
+EOF
+chmod 600 ~/.msmtprc
+echo "test from secscan" | msmtp you@gmail.com   # verify delivery
+```
+
+If no transport is installed the scan still runs and archives normally; the
+skipped email is noted in the run's `.err` file.
+
 **Seeing the results.** Desktop notifications from cron are best-effort (they
 need a live GUI session). For a reliable nudge, add this to your `~/.bashrc` so
 new shells warn you only when the last scan found HIGH items (silent when clean):
