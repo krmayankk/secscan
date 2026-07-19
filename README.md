@@ -10,9 +10,10 @@ browser extensions, keyloggers, reverse shells, crypto-miners, rogue startup
 entries, tampered config, and known malware — and reports what it finds in one
 place.
 
-**Read-only by design.** secscan inspects and reports; it never deletes or
-modifies anything on your system. (The one optional write — clearing a spam
-notification grant — is a separate, explicit subcommand.)
+**Read-only by design.** A *scan* inspects and reports; it never deletes or
+modifies anything on your system. Cleanup lives in separate, explicit `fix-*`
+subcommands that dry-run by default and only write with `--yes` (see
+[Cleaning up findings](#cleaning-up-findings)).
 
 ## Who it's for & why it exists
 
@@ -123,6 +124,7 @@ with `systemctl --user list-timers secscan.timer` and
 
 ```
 secscan [--quick] [--category CAT ...] [--target DIR ...] [--json] [--list]
+secscan fix-autostart | fix-notifications [--yes]
 
 --quick            skip slow filesystem walks (world-writable, SUID)
 --category CAT     only run the given category (repeatable)
@@ -140,6 +142,26 @@ secscan --category browser --category network   # just those two areas
 secscan --category malware --target ~/Downloads # virus-scan one folder
 secscan --json > scan-$(date +%F).json          # archive for diffing
 ```
+
+### Cleaning up findings
+
+Scanning never writes; cleanup is explicit. Every `fix-*` subcommand prints
+what it *would* change (dry run) and only applies it when you add `--yes`:
+
+```bash
+secscan fix-autostart          # show broken/unreadable autostart leftovers
+secscan fix-autostart --yes    # delete them (e.g. dangling uninstaller symlinks)
+
+secscan fix-notifications        # show spam notification grants it would revoke
+secscan fix-notifications --yes  # revoke them (browser must be closed;
+                                 #  Preferences is backed up first)
+```
+
+`fix-notifications` only removes grants for throwaway-looking hosts (the same
+heuristic the scan flags as HIGH); grants for normal sites are untouched.
+Everything else secscan finds is deliberately left to you — killing processes
+or uninstalling software is a judgment call, so findings tell you *how* in
+their remediation line instead of doing it silently.
 
 ### Run it on a schedule
 

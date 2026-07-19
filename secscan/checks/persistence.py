@@ -68,7 +68,9 @@ class AutostartCheck(Check):
                 text = desktop.read_text(errors="replace")
             except OSError:
                 # dangling symlink or unreadable entry
-                yield self.warn(f"user autostart unreadable: {desktop.name}")
+                yield self.warn(f"user autostart unreadable: {desktop.name}",
+                                detail="usually an uninstaller leftover",
+                                remediation="Run: secscan fix-autostart")
                 continue
             exec_line = next((l for l in text.splitlines() if l.startswith("Exec=")), "")
             # user-level autostart is a favourite persistence spot -> WARN

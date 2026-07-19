@@ -30,9 +30,19 @@ def _build_report(ctx: Context, only: list[str] | None) -> ScanReport:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if argv is None:
+        argv = sys.argv[1:]
+    # fix-* subcommands are the only thing secscan ever writes; they live in
+    # their own module and are dispatched before scan-flag parsing.
+    from .fix import _COMMANDS, main as fix_main
+    if argv and argv[0] in _COMMANDS:
+        return fix_main(argv)
+
     parser = argparse.ArgumentParser(
         prog="secscan",
         description="Host security & spam scanner for Linux desktops (read-only).",
+        epilog="cleanup subcommands (dry-run unless --yes): "
+               + "; ".join(f"{c} — {h}" for c, (_, h) in _COMMANDS.items()),
     )
     parser.add_argument("--version", action="version", version=f"secscan {__version__}")
     parser.add_argument("--quick", action="store_true",
