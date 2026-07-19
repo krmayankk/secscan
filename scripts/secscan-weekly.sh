@@ -40,7 +40,7 @@ from collections import Counter
 c = Counter(x["severity"] for x in f)
 print(f"secscan {d['started_at']}  host={d['host']}")
 print("TOTALS:", "  ".join(f"{sev[k]}={c.get(k,0)}" for k in (3, 2, 1, 0)))
-for level in (3, 2):
+for level in (3, 2, 1, 0):
     rows = [x for x in f if x["severity"] == level]
     if rows:
         print(f"\n{sev[level]}:")

@@ -192,8 +192,11 @@ Or, plainer, a cron line (no catch-up if the machine was off):
 
 #### Email the weekly report
 
-The wrapper emails each run's summary (subject says `clean`, `N WARN`, or
-`⚠ N HIGH`) when a recipient is configured:
+> **Step-by-step walkthrough:** [docs/EMAIL-AND-REPORTS.md](docs/EMAIL-AND-REPORTS.md)
+> covers email setup, ad-hoc runs, and reading the full report.
+
+The wrapper emails each run's full report — all levels, HIGH through OK —
+(subject says `clean`, `N WARN`, or `⚠ N HIGH`) when a recipient is configured:
 
 ```bash
 mkdir -p ~/.config/secscan
